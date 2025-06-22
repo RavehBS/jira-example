@@ -7,23 +7,17 @@ from dotenv import load_dotenv
 load_dotenv()  # reads .env in project root
 
 BASE_URL = os.getenv("JIRA_BASE_URL", "").rstrip("/")
+CLOUD_ID = os.getenv("CLOUD_ID", "")
 EMAIL = os.getenv("JIRA_EMAIL")
 TOKEN = os.getenv("JIRA_TOKEN")
 
-if not all([BASE_URL, EMAIL, TOKEN]):
-    raise RuntimeError("Missing JIRA_BASE_URL, JIRA_EMAIL or JIRA_TOKEN in environment")
-
-# PAT uses basic‑auth: base64("email:token")
-auth_str = f"{EMAIL}:{TOKEN}".encode()
-HEADERS = {
-    "Authorization": "Basic " + base64.b64encode(auth_str).decode(),
-    "Accept": "application/json",
-}
+if not all([BASE_URL, EMAIL, TOKEN, CLOUD_ID]):
+    raise RuntimeError("Missing JIRA_BASE_URL, JIRA_EMAIL or JIRA_TOKEN or CLOUD_ID in environment")
 
 def _get(path: str, params: Dict[str, Any] | None = None):
     """Internal helper that performs a GET and returns parsed JSON."""
-    url = f"{BASE_URL}/rest/api/3/{path.lstrip('/')}"
-    resp = requests.get(url, headers=HEADERS, params=params, timeout=10)
+    url = f"{BASE_URL}/{CLOUD_ID}/rest/api/2/{path.lstrip('/')}"
+    resp = requests.get(url, auth=(EMAIL,TOKEN), timeout=10)
     resp.raise_for_status()
     return resp.json()
 
@@ -36,7 +30,8 @@ def list_projects() -> List[dict]:
 
 def get_issue(key: str) -> dict:
     """Fetch a single issue by key (e.g., PROJ-1)."""
-    return _get(f"issue/{key}")
+    issue = _get(f"issue/{key}")
+    return issue
 
 def search_jql(jql: str, max_results: int = 50) -> List[dict]:
     """Run a JQL query and return issues."""
